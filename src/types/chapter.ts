@@ -18,7 +18,7 @@ export interface Chapter {
   wordCount: number;
   /** 关联大纲节点ID */
   outlineNodeId: string;
-  /** 引用人物ID列表 */
+  /** 引用角色ID列表 */
   characterRefs: string[];
   /** 引用设定项ID列表 */
   settingRefs: string[];

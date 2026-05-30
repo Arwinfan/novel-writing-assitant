@@ -1,5 +1,5 @@
 /**
- * 自定义人物节点 - 支持右键菜单和拖拽
+ * 自定义角色节点 - 支持右键菜单和拖拽
  */
 import React, { useState, useRef, memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
@@ -102,13 +102,13 @@ export const CharacterNode: React.FC<NodeProps> = memo(({ data }) => {
       >
         <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 120 }}>
           <Button size="small" startIcon={<EditIcon />} onClick={handleEdit} sx={{ justifyContent: 'flex-start' }}>
-            编辑人物
+            编辑角色
           </Button>
           <Button size="small" startIcon={<AddRelIcon />} onClick={handleAddRelation} sx={{ justifyContent: 'flex-start' }}>
             添加关系
           </Button>
           <Button size="small" startIcon={<DeleteIcon />} onClick={handleDelete} color="error" sx={{ justifyContent: 'flex-start' }}>
-            删除人物
+            删除角色
           </Button>
         </Box>
       </Popover>

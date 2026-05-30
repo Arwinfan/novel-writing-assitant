@@ -1,4 +1,4 @@
-/** 人物 */
+/** 角色 */
 export interface Character {
   id: string;
   projectId: string;
@@ -8,12 +8,13 @@ export interface Character {
   personality: string;
   background: string;
   faction: string;
+  factionId: string;     // 所属组织ID
   tags: string[];
   createdAt: number;
   updatedAt: number;
 }
 
-/** 创建人物参数 */
+/** 创建角色参数 */
 export interface CreateCharacterParams {
   name: string;
   alias?: string;
@@ -21,10 +22,11 @@ export interface CreateCharacterParams {
   personality?: string;
   background?: string;
   faction?: string;
+  factionId?: string;
   tags?: string[];
 }
 
-/** 更新人物参数 */
+/** 更新角色参数 */
 export interface UpdateCharacterParams {
   name?: string;
   alias?: string;
@@ -32,5 +34,6 @@ export interface UpdateCharacterParams {
   personality?: string;
   background?: string;
   faction?: string;
+  factionId?: string;
   tags?: string[];
 }

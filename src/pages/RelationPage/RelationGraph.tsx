@@ -1,5 +1,5 @@
 /**
- * ReactFlow 人物关系图 - 完整交互版
+ * ReactFlow 角色关系图 - 完整交互版
  * 支持节点拖拽、边点击编辑、右键菜单、双击创建
  */
 import React, { useCallback, useMemo, useState } from 'react';

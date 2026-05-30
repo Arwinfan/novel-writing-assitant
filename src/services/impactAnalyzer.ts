@@ -9,7 +9,7 @@ import type { Reference, CreateImpactAlertParams } from '../types/linkage';
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   [ReferenceEntityType.OUTLINE_NODE]: '大纲节点',
   [ReferenceEntityType.PLOTLINE_NODE]: '剧情节点',
-  [ReferenceEntityType.CHARACTER]: '人物',
+  [ReferenceEntityType.CHARACTER]: '角色',
   [ReferenceEntityType.SETTING_ITEM]: '设定项',
 };
 

@@ -46,8 +46,8 @@ const MODULE_LABELS: Record<string, { label: string; icon: string }> = {
   outline: { label: '大纲', icon: '📋' },
   chapter: { label: '正文', icon: '📖' },
   plotline: { label: '剧情线', icon: '📈' },
-  character: { label: '人物', icon: '👤' },
-  relation: { label: '人物关系', icon: '🔗' },
+  character: { label: '角色', icon: '👤' },
+  relation: { label: '角色关系', icon: '🔗' },
   setting: { label: '世界设定', icon: '🌍' },
 };
 

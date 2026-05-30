@@ -95,8 +95,12 @@ export const plotlineService = {
   },
 
   async delete(id: string): Promise<void> {
-    await db.plotlineNodes.where('plotlineId').equals(id).delete();
-    await db.plotlines.delete(id);
+    // 事务包装：先删节点再删剧情线，保证原子性
+    const nodeIds = await db.plotlineNodes.where('plotlineId').equals(id).primaryKeys();
+    await db.transaction('rw', db.plotlineNodes, db.plotlines, async () => {
+      await db.plotlineNodes.bulkDelete(nodeIds);
+      await db.plotlines.delete(id);
+    });
   },
 };
 
@@ -166,6 +170,7 @@ export const characterService = {
       personality: params.personality ?? '',
       background: params.background ?? '',
       faction: params.faction ?? '',
+      factionId: params.factionId ?? '',
       tags: params.tags ?? [],
       createdAt: now,
       updatedAt: now,
@@ -260,8 +265,12 @@ export const settingCategoryService = {
   },
 
   async delete(id: string): Promise<void> {
-    await db.settingItems.where('categoryId').equals(id).delete();
-    await db.settingCategories.delete(id);
+    // 事务包装：先删设定项再删分类，保证原子性
+    const itemIds = await db.settingItems.where('categoryId').equals(id).primaryKeys();
+    await db.transaction('rw', db.settingItems, db.settingCategories, async () => {
+      await db.settingItems.bulkDelete(itemIds);
+      await db.settingCategories.delete(id);
+    });
   },
 };
 
@@ -490,5 +499,54 @@ export const chapterService = {
       await chapterService.deleteRecursive(child.id);
     }
     await db.chapters.delete(id);
+  },
+};
+
+// ===== Faction =====
+
+export const factionService = {
+  async getAll(projectId: string = DEFAULT_PROJECT_ID): Promise<import('../types/faction').Faction[]> {
+    return db.factions.where('projectId').equals(projectId).sortBy('createdAt');
+  },
+
+  async getById(id: string): Promise<import('../types/faction').Faction | undefined> {
+    return db.factions.get(id);
+  },
+
+  async create(params: import('../types/faction').CreateFactionParams, projectId: string = DEFAULT_PROJECT_ID): Promise<import('../types/faction').Faction> {
+    const now = Date.now();
+    const faction: import('../types/faction').Faction = {
+      id: generateId(),
+      projectId,
+      name: params.name,
+      description: params.description ?? '',
+      factionType: params.factionType ?? import('../types/faction').FactionType.ORGANIZATION,
+      parentId: params.parentId ?? '',
+      leaderId: params.leaderId ?? '',
+      color: params.color ?? '#1976d2',
+      tags: params.tags ?? [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    await db.factions.add(faction);
+    return faction;
+  },
+
+  async update(id: string, params: import('../types/faction').UpdateFactionParams): Promise<void> {
+    await db.factions.update(id, { ...params, updatedAt: Date.now() });
+  },
+
+  async delete(id: string): Promise<void> {
+    // 将属于该组织的角色的 factionId 清空
+    const members = await db.characters.where('factionId').equals(id).toArray();
+    for (const char of members) {
+      await db.characters.update(char.id, { factionId: '', faction: '' });
+    }
+    // 将子组织的 parentId 清空
+    const children = await db.factions.where('parentId').equals(id).toArray();
+    for (const child of children) {
+      await db.factions.update(child.id, { parentId: '' });
+    }
+    await db.factions.delete(id);
   },
 };

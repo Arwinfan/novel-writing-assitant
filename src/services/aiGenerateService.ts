@@ -2,7 +2,7 @@
  * AI 一键生成服务
  * 为各模块提供结构化的 prompt 模板、条件选项和结果解析
  */
-import { aiService } from './aiService';
+import { aiService, AIError, AIErrorType } from './aiService';
 import { contextAssembler } from './contextAssembler';
 import type { AIConfig } from '../types/ai';
 
@@ -467,6 +467,8 @@ ${names ? `已有设定项（请勿重复）：${names}` : ''}
 };
 
 /** AI 一键生成服务 */
+export { AIError, AIErrorType } from './aiService';
+
 export const aiGenerateService = {
   /**
    * 为指定模块生成内容
@@ -731,6 +733,73 @@ export const aiGenerateService = {
           description: match[4]?.trim() ?? '',
         });
       }
+    }
+
+    return result;
+  },
+
+  /**
+   * 解析章节生成结果
+   * 支持格式：[章] 标题\n正文内容（多行）
+   * 如果没有 [章] 标记，整段作为一个章节（标题取首行）
+   */
+  parseChapterResult(content: string): Array<{ title: string; content: string }> {
+    const result: Array<{ title: string; content: string }> = [];
+    const lines = content.split('\n');
+
+    let currentTitle = '';
+    let currentLines: string[] = [];
+
+    const flushChapter = () => {
+      if (currentTitle || currentLines.length > 0) {
+        // 如果没有标题但有内容，用首行作为标题
+        if (!currentTitle && currentLines.length > 0) {
+          const firstLine = currentLines[0].trim();
+          // 首行太长时截取前20字
+          currentTitle = firstLine.length > 20 ? firstLine.slice(0, 20) + '...' : firstLine;
+          currentLines = currentLines.slice(1);
+        }
+        const chapterContent = currentLines.join('\n').trim();
+        if (currentTitle || chapterContent) {
+          result.push({
+            title: currentTitle || '无标题',
+            content: chapterContent,
+          });
+        }
+        currentTitle = '';
+        currentLines = [];
+      }
+    };
+
+    for (const line of lines) {
+      // 匹配 [章] 标题 或 【章】标题 格式
+      const chapterMatch = line.match(/^\s*\[章\]\s*(.+)$/) || line.match(/^\s*【章】\s*(.+)$/);
+      if (chapterMatch) {
+        // 遇到新章节标记，先保存之前的
+        flushChapter();
+        currentTitle = chapterMatch[1].trim();
+      } else {
+        currentLines.push(line);
+      }
+    }
+    // 保存最后一个章节
+    flushChapter();
+
+    // 如果完全没解析出章节（无 [章] 标记），把整个内容作为一个章节
+    if (result.length === 0 && content.trim()) {
+      const contentLines = content.split('\n');
+      // 尝试用首行做标题
+      const firstLine = contentLines[0].trim();
+      let title = '新章节';
+      let chapterContent = content.trim();
+
+      // 如果首行较短且不像正文，当标题用
+      if (firstLine.length <= 30 && firstLine.length > 0) {
+        title = firstLine;
+        chapterContent = contentLines.slice(1).join('\n').trim();
+      }
+
+      result.push({ title, content: chapterContent });
     }
 
     return result;

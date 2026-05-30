@@ -1,10 +1,9 @@
 /**
- * 正文编辑写作页
- * 左侧章节列表 + 右侧编辑器
+ * 正文编辑写作页（响应式：桌面端双栏/移动端切换）
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { Box, Button, Snackbar, Alert } from '@mui/material';
-import { Description as ChapterIcon, AutoAwesome as AIIcon } from '@mui/icons-material';
+import { Box, Button, Snackbar, Alert, IconButton, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Description as ChapterIcon, AutoAwesome as AIIcon, ArrowBack as BackIcon } from '@mui/icons-material';
 import { useChapterStore, countWords } from '../../stores/chapterStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useSettingStore } from '../../stores/settingStore';
@@ -20,9 +19,13 @@ export const ChapterPage: React.FC = () => {
   const { characters, loadCharacters } = useCharacterStore();
   const { items: settingItems, loadCategories, loadAllItems } = useSettingStore();
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [showList, setShowList] = useState(true);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
+
+  const theme = useTheme();
+  const isMobile = !useMediaQuery(theme.breakpoints.up('md'));
 
   useEffect(() => {
     loadChapters();
@@ -32,6 +35,17 @@ export const ChapterPage: React.FC = () => {
   }, [loadChapters, loadCharacters, loadCategories, loadAllItems]);
 
   const selectedChapter = chapters.find((c) => c.id === selectedChapterId) ?? null;
+
+  /** 选择章节（移动端切换到编辑器） */
+  const handleSelect = useCallback((id: string | null) => {
+    selectChapter(id);
+    if (isMobile && id) setShowList(false);
+  }, [selectChapter, isMobile]);
+
+  /** 返回列表（移动端） */
+  const handleBackToList = useCallback(() => {
+    setShowList(true);
+  }, []);
 
   /** 创建章节 */
   const handleCreate = useCallback(async (title: string, parentId: string) => {
@@ -54,37 +68,34 @@ export const ChapterPage: React.FC = () => {
   }, [deleteChapter]);
 
   /** 重命名章节 */
-  const handleRename = useCallback(async (id: string, title: string) => {
+  const handleRename = useCallback(async (id: string, newTitle: string) => {
     try {
-      await updateChapter(id, { title });
+      await updateChapter(id, { title: newTitle });
+      setSnackbar({ open: true, message: '章节已重命名', severity: 'success' });
     } catch (err) {
       setSnackbar({ open: true, message: '重命名失败', severity: 'error' });
     }
   }, [updateChapter]);
 
   /** 更新章节内容 */
-  const handleUpdate = useCallback(async (id: string, params: any) => {
+  const handleUpdate = useCallback(async (id: string, data: any) => {
     try {
-      const wordCount = params.content ? countWords(params.content) : undefined;
-      await updateChapter(id, { ...params, ...(wordCount !== undefined ? { wordCount } : {}) });
+      await updateChapter(id, data);
     } catch (err) {
       setSnackbar({ open: true, message: '保存失败', severity: 'error' });
     }
   }, [updateChapter]);
 
-  /** AI 续写后更新 */
-  const handleAIContinue = useCallback(async (content: string) => {
-    if (selectedChapterId) {
-      const wordCount = countWords(content);
-      await updateChapter(selectedChapterId, { content, wordCount });
-    }
-  }, [selectedChapterId, updateChapter]);
+  /** AI 续写 */
+  const handleAIContinue = useCallback((text: string) => {
+    if (selectedChapter) setAiDialogOpen(true);
+  }, [selectedChapter]);
 
-  /** AI 生成章节采纳 */
-  const handleAIAdopt = async (content: string) => {
-    const parsed = aiGenerateService.parseOutlineResult(content);
+  /** AI 生成结果采纳 */
+  const handleAIAdopt = useCallback(async (content: string) => {
+    const parsed = aiGenerateService.parseChapterResult(content);
     if (parsed.length === 0) {
-      setSnackbar({ open: true, message: 'AI 生成的格式无法解析', severity: 'error' });
+      setSnackbar({ open: true, message: 'AI 生成的格式无法解析，请手动创建', severity: 'error' });
       return;
     }
 
@@ -92,8 +103,8 @@ export const ChapterPage: React.FC = () => {
       let count = 0;
       for (const item of parsed) {
         await createChapter({
-          title: item.title,
-          content: item.content,
+          title: item.title || '无标题',
+          content: item.content || '',
           status: ChapterStatus.DRAFT,
         });
         count++;
@@ -102,10 +113,22 @@ export const ChapterPage: React.FC = () => {
     } catch (err) {
       setSnackbar({ open: true, message: '创建失败', severity: 'error' });
     }
-  };
+  }, [createChapter]);
+
+  /** 批量删除章节 */
+  const handleBatchDelete = useCallback(async (ids: string[]) => {
+    try {
+      for (const id of ids) {
+        await deleteChapter(id);
+      }
+      setSnackbar({ open: true, message: `已删除 ${ids.length} 个章节`, severity: 'success' });
+    } catch (err) {
+      setSnackbar({ open: true, message: '批量删除失败', severity: 'error' });
+    }
+  }, [deleteChapter]);
 
   /** 快捷键保存 */
-  React.useEffect(() => {
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
@@ -123,7 +146,8 @@ export const ChapterPage: React.FC = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [selectedChapter, updateChapter]);
 
-  if (chapters.length === 0 && !selectedChapter) {
+  // ====== 空状态 ======
+  if (chapters.length === 0) {
     return (
       <>
         <EmptyState
@@ -133,14 +157,9 @@ export const ChapterPage: React.FC = () => {
           actionLabel="创建第一章"
           onAction={() => handleCreate('第一章', '')}
         />
-        <Box sx={{ position: 'absolute', bottom: 80, left: '50%', transform: 'translateX(-50%)' }}>
-          <Button
-            variant="outlined"
-            startIcon={<AIIcon />}
-            onClick={() => setAiDialogOpen(true)}
-            sx={{ borderColor: 'primary.main', color: 'primary.main', mr: 2 }}
-          >
-            AI 生成章节大纲
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Button variant="outlined" startIcon={<AIIcon />} onClick={() => setAiDialogOpen(true)}>
+            AI 生成章节
           </Button>
         </Box>
         <AIGenerateDialog
@@ -150,7 +169,7 @@ export const ChapterPage: React.FC = () => {
           existingNames={chapters.map((c) => c.title)}
           existingContext={[
             ...(chapters.length > 0 ? ['已有章节：', ...chapters.map((c) => `- ${c.title}（${c.status === ChapterStatus.DRAFT ? '草稿' : c.status === ChapterStatus.IN_PROGRESS ? '进行中' : c.status === ChapterStatus.COMPLETE ? '完稿' : '修订'}）${c.content ? ` ${c.content.slice(0, 60)}...` : ''}`)] : []),
-            ...(characters.length > 0 ? ['\n已有人物：', ...characters.map((c) => `- ${c.name}${c.alias ? `（${c.alias}）` : ''}${c.personality ? `：${c.personality}` : ''}`)] : []),
+            ...(characters.length > 0 ? ['\n已有角色：', ...characters.map((c) => `- ${c.name}${c.alias ? `（${c.alias}）` : ''}${c.personality ? `：${c.personality}` : ''}`)] : []),
             ...(settingItems.length > 0 ? ['\n已有设定：', ...settingItems.map((s) => `- ${s.name}${s.content ? `：${s.content.slice(0, 60)}` : ''}`)] : []),
           ].filter(Boolean).join('\n')}
           onAdopt={handleAIAdopt}
@@ -160,37 +179,71 @@ export const ChapterPage: React.FC = () => {
     );
   }
 
+  // ====== 章节列表（移动端全宽显示） ======
+  const chapterListView = (
+    <Box sx={{
+      width: isMobile ? '100%' : 260,
+      flexShrink: 0,
+      borderRight: isMobile ? 0 : 1,
+      borderColor: 'divider',
+      bgcolor: 'background.paper',
+      overflow: 'auto',
+    }}>
+      <ChapterList
+        chapters={chapters}
+        selectedId={selectedChapterId}
+        onSelect={handleSelect}
+        onCreate={handleCreate}
+        onDelete={handleDelete}
+        onRename={handleRename}
+        onAIGenerate={() => setAiDialogOpen(true)}
+        onBatchDelete={handleBatchDelete}
+      />
+    </Box>
+  );
+
+  // ====== 编辑器（桌面端右侧 / 移动端全宽） ======
+  const editorView = (
+    <Box sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {isMobile && (
+        <Box sx={{ px: 1, py: 0.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+          <IconButton size="small" onClick={handleBackToList}>
+            <BackIcon fontSize="small" />
+          </IconButton>
+          <Typography variant="body2" component="span" sx={{ ml: 1 }}>
+            {selectedChapter?.title || '章节'}
+          </Typography>
+        </Box>
+      )}
+      {selectedChapter ? (
+        <ChapterEditor
+          chapter={selectedChapter}
+          characters={characters}
+          settingItems={settingItems}
+          onUpdate={handleUpdate}
+          onAIContinue={handleAIContinue}
+        />
+      ) : (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <Typography color="text.secondary">选择左侧章节开始写作</Typography>
+        </Box>
+      )}
+    </Box>
+  );
+
   return (
     <Box sx={{ display: 'flex', height: '100%', gap: 0 }}>
-      {/* 左侧章节列表 */}
-      <Box sx={{ width: 300, flexShrink: 0, borderRight: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-        <ChapterList
-          chapters={chapters}
-          selectedId={selectedChapterId}
-          onSelect={selectChapter}
-          onCreate={handleCreate}
-          onDelete={handleDelete}
-          onRename={handleRename}
-          onAIGenerate={() => setAiDialogOpen(true)}
-        />
-      </Box>
-
-      {/* 右侧编辑器 */}
-      <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-        {selectedChapter ? (
-          <ChapterEditor
-            chapter={selectedChapter}
-            characters={characters}
-            settingItems={settingItems}
-            onUpdate={handleUpdate}
-            onAIContinue={handleAIContinue}
-          />
-        ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <span style={{ color: '#999' }}>选择左侧章节开始写作</span>
-          </Box>
-        )}
-      </Box>
+      {/* 桌面端：双栏 */}
+      {!isMobile && (
+        <>
+          {chapterListView}
+          {editorView}
+        </>
+      )}
+      {/* 移动端：单栏切换 */}
+      {isMobile && (
+        showList ? chapterListView : editorView
+      )}
 
       {/* AI生成弹窗 */}
       <AIGenerateDialog
@@ -200,7 +253,7 @@ export const ChapterPage: React.FC = () => {
         existingNames={chapters.map((c) => c.title)}
         existingContext={[
           ...(chapters.length > 0 ? ['已有章节：', ...chapters.map((c) => `- ${c.title}（${c.status === ChapterStatus.DRAFT ? '草稿' : c.status === ChapterStatus.IN_PROGRESS ? '进行中' : c.status === ChapterStatus.COMPLETE ? '完稿' : '修订'}）${c.content ? ` ${c.content.slice(0, 60)}...` : ''}`)] : []),
-          ...(characters.length > 0 ? ['\n已有人物：', ...characters.map((c) => `- ${c.name}${c.alias ? `（${c.alias}）` : ''}${c.personality ? `：${c.personality}` : ''}`)] : []),
+          ...(characters.length > 0 ? ['\n已有角色：', ...characters.map((c) => `- ${c.name}${c.alias ? `（${c.alias}）` : ''}${c.personality ? `：${c.personality}` : ''}`)] : []),
           ...(settingItems.length > 0 ? ['\n已有设定：', ...settingItems.map((s) => `- ${s.name}${s.content ? `：${s.content.slice(0, 60)}` : ''}`)] : []),
         ].filter(Boolean).join('\n')}
         onAdopt={handleAIAdopt}

@@ -1,7 +1,7 @@
 /**
  * 设定管理页
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Box, Button, Typography, Snackbar, Alert } from '@mui/material';
 import { Add as AddIcon, Settings as SettingsIcon, AutoAwesome as AIIcon } from '@mui/icons-material';
 import { useSettingStore } from '../../stores/settingStore';
@@ -27,7 +27,7 @@ const CATEGORY_NAME_TO_ICON: Record<string, string> = {
 export const SettingPage: React.FC = () => {
   const {
     categories, items, selectedCategoryId, selectedItemId,
-    loadCategories, loadAllItems, createCategory, selectCategory, selectItem, createItem,
+    loadCategories, loadAllItems, createCategory, deleteCategory, selectCategory, selectItem, createItem,
   } = useSettingStore();
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
@@ -100,6 +100,18 @@ export const SettingPage: React.FC = () => {
     }
   };
 
+  /** 批量删除分类 */
+  const handleBatchDelete = useCallback(async (ids: string[]) => {
+    try {
+      for (const id of ids) {
+        await deleteCategory(id);
+      }
+      setSnackbar({ open: true, message: `已删除 ${ids.length} 个分类`, severity: 'success' });
+    } catch (err) {
+      setSnackbar({ open: true, message: '批量删除失败', severity: 'error' });
+    }
+  }, [deleteCategory]);
+
   if (categories.length === 0) {
     return (
       <>
@@ -160,6 +172,7 @@ export const SettingPage: React.FC = () => {
           onSelectCategory={selectCategory}
           onSelectItem={selectItem}
           onAddItem={() => setItemDialogOpen(true)}
+          onBatchDelete={handleBatchDelete}
         />
       </Box>
 

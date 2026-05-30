@@ -1,5 +1,5 @@
 /**
- * 人物关系状态管理
+ * 角色关系状态管理
  */
 import { create } from 'zustand';
 import type { Relation, CreateRelationParams, UpdateRelationParams } from '../types/relation';

@@ -1,5 +1,5 @@
 /**
- * 章节列表组件 - 左侧栏
+ * 章节列表组件 - 左侧栏（支持多选）
  */
 import React, { useState } from 'react';
 import {
@@ -20,6 +20,9 @@ import {
   Menu,
   MenuItem,
   Divider,
+  Checkbox,
+  Tooltip,
+  Fade,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -29,9 +32,13 @@ import {
   AutoAwesome as AIIcon,
   Folder as VolumeIcon,
   Description as ChapterIcon,
+  Close as CloseIcon,
+  SelectAll as SelectAllIcon,
+  Deselect as DeselectIcon,
 } from '@mui/icons-material';
 import type { Chapter } from '../../types/chapter';
 import { ChapterStatus, CHAPTER_STATUS_LABELS, CHAPTER_STATUS_COLORS } from '../../types/chapter';
+import { ConfirmDialog } from '../../components/Common/ConfirmDialog';
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -41,6 +48,7 @@ interface ChapterListProps {
   onDelete: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onAIGenerate: () => void;
+  onBatchDelete?: (ids: string[]) => void;
 }
 
 export const ChapterList: React.FC<ChapterListProps> = ({
@@ -51,6 +59,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   onDelete,
   onRename,
   onAIGenerate,
+  onBatchDelete,
 }) => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -60,6 +69,10 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   const [renameTitle, setRenameTitle] = useState('');
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuTarget, setMenuTarget] = useState<Chapter | null>(null);
+  // 多选相关
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
   /** 顶层章节（无 parentId 的） */
   const topLevelChapters = chapters.filter((c) => !c.parentId || c.parentId === '');
@@ -102,9 +115,54 @@ export const ChapterList: React.FC<ChapterListProps> = ({
     setMenuTarget(null);
   };
 
+  /** 多选：切换选中 */
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  /** 多选：全选 */
+  const selectAll = () => {
+    setSelectedIds(new Set(chapters.map((c) => c.id)));
+  };
+
+  /** 多选：取消全选/退出多选模式 */
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  /** 多选：进入选择模式 */
+  const enterSelectionMode = () => {
+    setSelectionMode(true);
+  };
+
+  /** 多选：批量删除 */
+  const handleBatchDelete = () => {
+    if (selectedIds.size > 0) {
+      setBatchDeleteOpen(true);
+    }
+  };
+
+  const confirmBatchDelete = () => {
+    if (onBatchDelete) {
+      onBatchDelete(Array.from(selectedIds));
+    } else {
+      // 回退：逐个删除
+      selectedIds.forEach((id) => onDelete(id));
+    }
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+    setBatchDeleteOpen(false);
+  };
+
   const renderChapter = (chapter: Chapter, depth: number = 0) => {
     const children = childMap.get(chapter.id) ?? [];
     const isSelected = selectedId === chapter.id;
+    const isChecked = selectedIds.has(chapter.id);
     const statusColor = CHAPTER_STATUS_COLORS[chapter.status] || '#9e9e9e';
 
     return (
@@ -115,7 +173,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
         >
           <ListItemButton
             selected={isSelected}
-            onClick={() => onSelect(chapter.id)}
+            onClick={() => selectionMode ? toggleSelect(chapter.id) : onSelect(chapter.id)}
             sx={{
               borderRadius: 1,
               mb: 0.3,
@@ -126,6 +184,14 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               },
             }}
           >
+            {selectionMode && (
+              <Checkbox
+                size="small"
+                checked={isChecked}
+                onClick={(e) => { e.stopPropagation(); toggleSelect(chapter.id); }}
+                sx={{ mr: 0.5, p: 0.3 }}
+              />
+            )}
             <ChapterIcon sx={{ fontSize: 18, mr: 1, color: isSelected ? 'inherit' : statusColor }} />
             <ListItemText
               primary={chapter.title}
@@ -140,24 +206,28 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                 color: isSelected ? 'rgba(255,255,255,0.7)' : 'text.secondary',
               }}
             />
-            <Chip
-              label={CHAPTER_STATUS_LABELS[chapter.status]}
-              size="small"
-              sx={{
-                height: 20,
-                fontSize: '0.65rem',
-                bgcolor: `${statusColor}22`,
-                color: statusColor,
-                fontWeight: 600,
-              }}
-            />
-            <IconButton
-              size="small"
-              onClick={(e) => handleMenuOpen(e, chapter)}
-              sx={{ ml: 0.5, color: isSelected ? 'inherit' : 'text.secondary' }}
-            >
-              <MoreIcon fontSize="small" />
-            </IconButton>
+            {!selectionMode && (
+              <>
+                <Chip
+                  label={CHAPTER_STATUS_LABELS[chapter.status]}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.65rem',
+                    bgcolor: `${statusColor}22`,
+                    color: statusColor,
+                    fontWeight: 600,
+                  }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={(e) => handleMenuOpen(e, chapter)}
+                  sx={{ ml: 0.5, color: isSelected ? 'inherit' : 'text.secondary' }}
+                >
+                  <MoreIcon fontSize="small" />
+                </IconButton>
+              </>
+            )}
           </ListItemButton>
         </ListItem>
         {children.map((child) => renderChapter(child, depth + 1))}
@@ -173,12 +243,36 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           章节
         </Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <IconButton size="small" onClick={onAIGenerate} color="secondary" title="AI生成">
-            <AIIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" onClick={() => setCreateDialogOpen(true)} color="primary" title="新增章节">
-            <AddIcon fontSize="small" />
-          </IconButton>
+          {!selectionMode ? (
+            <>
+              <Tooltip title="多选">
+                <IconButton size="small" onClick={enterSelectionMode} title="多选">
+                  <SelectAllIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <IconButton size="small" onClick={onAIGenerate} color="secondary" title="AI生成">
+                <AIIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" onClick={() => setCreateDialogOpen(true)} color="primary" title="新增章节">
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </>
+          ) : (
+            <>
+              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: '24px', mr: 0.5 }}>
+                已选 {selectedIds.size}
+              </Typography>
+              <IconButton size="small" onClick={selectAll} title="全选" disabled={selectedIds.size === chapters.length}>
+                <SelectAllIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" onClick={handleBatchDelete} color="error" title="批量删除" disabled={selectedIds.size === 0}>
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" onClick={clearSelection} title="取消">
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </>
+          )}
         </Box>
       </Box>
 
@@ -285,6 +379,17 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           <Button variant="contained" onClick={handleRename} disabled={!renameTitle.trim()}>确定</Button>
         </DialogActions>
       </Dialog>
+
+      {/* 批量删除确认 */}
+      <ConfirmDialog
+        open={batchDeleteOpen}
+        title="批量删除章节"
+        message={`确定要删除选中的 ${selectedIds.size} 个章节吗？此操作不可撤销。`}
+        confirmColor="error"
+        confirmLabel="删除"
+        onConfirm={confirmBatchDelete}
+        onCancel={() => setBatchDeleteOpen(false)}
+      />
     </Box>
   );
 };

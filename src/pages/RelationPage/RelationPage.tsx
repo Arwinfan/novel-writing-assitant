@@ -1,5 +1,5 @@
 /**
- * 人物关系图页 - 完整交互版
+ * 角色关系图页 - 完整交互版
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { Box, Button, Snackbar, Alert, Typography, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
@@ -23,7 +23,7 @@ export const RelationPage: React.FC = () => {
     open: false, message: '', severity: 'success',
   });
 
-  // 编辑人物弹窗
+  // 编辑角色弹窗
   const [editCharDialogOpen, setEditCharDialogOpen] = useState(false);
   const [editChar, setEditChar] = useState<Character | null>(null);
   const [editCharName, setEditCharName] = useState('');
@@ -70,7 +70,7 @@ export const RelationPage: React.FC = () => {
       }
 
       const msg = skipped > 0
-        ? `成功创建 ${count} 条关系，${skipped} 条因找不到对应人物而跳过`
+        ? `成功创建 ${count} 条关系，${skipped} 条因找不到对应角色而跳过`
         : `成功创建 ${count} 条关系`;
       setSnackbar({ open: true, message: msg, severity: 'success' });
     } catch (err) {
@@ -108,7 +108,7 @@ export const RelationPage: React.FC = () => {
     }
   }, [createRelation]);
 
-  /** 编辑人物（从图中右键菜单） */
+  /** 编辑角色（从图中右键菜单） */
   const handleEditCharacter = useCallback((character: Character) => {
     setEditChar(character);
     setEditCharName(character.name);
@@ -119,17 +119,17 @@ export const RelationPage: React.FC = () => {
     setEditCharDialogOpen(true);
   }, []);
 
-  /** 删除人物（从图中右键菜单） */
+  /** 删除角色（从图中右键菜单） */
   const handleDeleteCharacter = useCallback(async (characterId: string) => {
     try {
       await deleteCharacter(characterId);
-      setSnackbar({ open: true, message: '人物已删除', severity: 'success' });
+      setSnackbar({ open: true, message: '角色已删除', severity: 'success' });
     } catch (err) {
       setSnackbar({ open: true, message: '删除失败', severity: 'error' });
     }
   }, [deleteCharacter]);
 
-  /** 保存人物编辑 */
+  /** 保存角色编辑 */
   const handleSaveCharacterEdit = async () => {
     if (!editChar || !editCharName.trim()) return;
     try {
@@ -141,7 +141,7 @@ export const RelationPage: React.FC = () => {
         faction: editCharFaction,
       });
       setEditCharDialogOpen(false);
-      setSnackbar({ open: true, message: '人物信息已更新', severity: 'success' });
+      setSnackbar({ open: true, message: '角色信息已更新', severity: 'success' });
     } catch (err) {
       setSnackbar({ open: true, message: '更新失败', severity: 'error' });
     }
@@ -152,9 +152,9 @@ export const RelationPage: React.FC = () => {
       <>
         <EmptyState
           icon={<GraphIcon />}
-          title="需要至少两个人物"
-          description="请先在人物页面创建至少两个人物，然后才能建立关系图"
-          actionLabel="去创建人物"
+          title="需要至少两个角色"
+          description="请先在角色页面创建至少两个角色，然后才能建立关系图"
+          actionLabel="去创建角色"
           onAction={() => {
             useAppStore.getState().setCurrentPage('character');
           }}
@@ -162,7 +162,7 @@ export const RelationPage: React.FC = () => {
         <AIGenerateDialog
           open={aiDialogOpen}
           module="relation"
-          moduleLabel="人物关系"
+          moduleLabel="角色关系"
           existingNames={characters.map((c) => c.name)}
           existingContext={characters.map((c) => `${c.name}${c.alias ? `(${c.alias})` : ''}${c.personality ? ` - ${c.personality}` : ''}`).join('\n')}
           onAdopt={handleAIAdopt}
@@ -217,16 +217,16 @@ export const RelationPage: React.FC = () => {
       <AIGenerateDialog
         open={aiDialogOpen}
         module="relation"
-        moduleLabel="人物关系"
+        moduleLabel="角色关系"
         existingNames={characters.map((c) => c.name)}
         existingContext={characters.map((c) => `${c.name}${c.alias ? `(${c.alias})` : ''}${c.personality ? ` - ${c.personality}` : ''}`).join('\n')}
         onAdopt={handleAIAdopt}
         onClose={() => setAiDialogOpen(false)}
       />
 
-      {/* 编辑人物弹窗 */}
+      {/* 编辑角色弹窗 */}
       <Dialog open={editCharDialogOpen} onClose={() => setEditCharDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>编辑人物</DialogTitle>
+        <DialogTitle>编辑角色</DialogTitle>
         <DialogContent>
           <TextField
             label="姓名"

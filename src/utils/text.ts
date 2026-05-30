@@ -107,3 +107,65 @@ export function highlightKeyword(text: string, keyword: string): string {
   const regex = new RegExp(`(${escaped})`, 'gi');
   return text.replace(regex, '<mark>$1</mark>');
 }
+
+/**
+ * 估算文本的 Token 数量
+ * 基于语言特征粗略估算，用于费用预估
+ *
+ * 估算规则（参考 GPT tokenizer 行为）：
+ * - 中文字符：约 1.2 tokens/字（含标点）
+ * - 英文字符：约 0.3 tokens/字符（单词 + 空格）
+ * - 数字和符号：约 0.5 tokens/字符
+ *
+ * @param text 要估算的文本
+ * @returns 估算的 token 数量
+ */
+export function estimateTokenCount(text: string): number {
+  if (!text) return 0;
+
+  let tokens = 0;
+  for (const char of text) {
+    if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/.test(char)) {
+      // CJK 字符：约 1.2 tokens
+      tokens += 1.2;
+    } else if (/[\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/.test(char)) {
+      // 日文/韩文：约 1.2 tokens
+      tokens += 1.2;
+    } else if (/[a-zA-Z]/.test(char)) {
+      // 英文字母：约 0.25 tokens（4 字母 ≈ 1 token）
+      tokens += 0.25;
+    } else if (/[0-9]/.test(char)) {
+      // 数字：约 0.5 tokens
+      tokens += 0.5;
+    } else if (/\s/.test(char)) {
+      // 空格：基本免费
+      tokens += 0;
+    } else {
+      // 其他符号
+      tokens += 0.5;
+    }
+  }
+
+  return Math.ceil(tokens);
+}
+
+/**
+ * 统计中文文本字数（仅统计中文字符）
+ * @param text 要统计的文本
+ * @returns 中文字符数量
+ */
+export function countChineseChars(text: string): number {
+  if (!text) return 0;
+  const matches = text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g);
+  return matches ? matches.length : 0;
+}
+
+/**
+ * 格式化以 Token 为基础的字符数显示
+ * "1230字 / 约1600 tokens"
+ */
+export function formatTokenInfo(text: string): string {
+  const chars = countChineseChars(text);
+  const tokens = estimateTokenCount(text);
+  return `${chars}字 / 约${tokens} tokens`;
+}

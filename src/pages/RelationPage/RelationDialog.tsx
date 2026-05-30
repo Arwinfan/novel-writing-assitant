@@ -72,11 +72,11 @@ export const RelationDialog: React.FC<RelationDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>添加人物关系</DialogTitle>
+      <DialogTitle>添加角色关系</DialogTitle>
       <DialogContent>
         <FormControl fullWidth sx={{ mt: 1, mb: 2 }}>
-          <InputLabel>人物A</InputLabel>
-          <Select value={sourceId} label="人物A" onChange={(e) => setSourceId(e.target.value)}>
+          <InputLabel>角色A</InputLabel>
+          <Select value={sourceId} label="角色A" onChange={(e) => setSourceId(e.target.value)}>
             {characters.map((c) => (
               <MenuItem key={c.id} value={c.id}>{c.name}{c.alias ? ` (${c.alias})` : ''}</MenuItem>
             ))}
@@ -84,8 +84,8 @@ export const RelationDialog: React.FC<RelationDialogProps> = ({
         </FormControl>
 
         <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>人物B</InputLabel>
-          <Select value={targetId} label="人物B" onChange={(e) => setTargetId(e.target.value)}>
+          <InputLabel>角色B</InputLabel>
+          <Select value={targetId} label="角色B" onChange={(e) => setTargetId(e.target.value)}>
             {characters.filter((c) => c.id !== sourceId).map((c) => (
               <MenuItem key={c.id} value={c.id}>{c.name}{c.alias ? ` (${c.alias})` : ''}</MenuItem>
             ))}

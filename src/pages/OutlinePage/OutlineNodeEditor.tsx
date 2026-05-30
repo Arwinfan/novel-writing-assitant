@@ -79,15 +79,15 @@ export const OutlineNodeEditor: React.FC<OutlineNodeEditorProps> = ({ node }) =>
           />
         </Box>
 
-        {/* 关联人物 */}
+        {/* 关联角色 */}
         <Box sx={{ mt: 3 }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            关联人物
+            关联角色
           </Typography>
           <TagInput
             tags={node.characterRefs}
             onChange={(tags) => handleUpdate({ characterRefs: tags })}
-            placeholder="添加人物ID"
+            placeholder="添加角色ID"
           />
         </Box>
 

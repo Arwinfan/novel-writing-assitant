@@ -21,6 +21,7 @@ import {
   Select,
   MenuItem,
   Collapse,
+  useMediaQuery,
 } from '@mui/material';
 import {
   AutoAwesome as AIIcon,
@@ -53,7 +54,7 @@ const MODULE_PLACEHOLDERS: Record<GenerateModule, string> = {
   chapter: '如：第一章开场的场景描写...',
   plotline: '如：围绕主角复仇的主线...',
   character: '如：需要一个亦正亦邪的角色...',
-  relation: '如：人物间要有爱恨纠葛...',
+  relation: '如：角色间要有爱恨纠葛...',
   setting: '如：独特的魔法体系...',
 };
 
@@ -66,6 +67,7 @@ export const AIGenerateDialog: React.FC<AIGenerateDialogProps> = ({
   onAdopt,
   onClose,
 }) => {
+  const isMobileDialog = useMediaQuery('(max-width:600px)');
   const config = useAIStore((s) => s.config);
   const [hint, setHint] = useState('');
   const [optionValues, setOptionValues] = useState<Record<string, string>>(() => {
@@ -213,6 +215,7 @@ export const AIGenerateDialog: React.FC<AIGenerateDialogProps> = ({
       onClose={handleClose}
       maxWidth="md"
       fullWidth
+      fullScreen={isMobileDialog}
       PaperProps={{ sx: { minHeight: 480 } }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

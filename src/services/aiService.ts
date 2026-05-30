@@ -1,9 +1,57 @@
 /**
  * AI API 通信服务
- * 封装 OpenAI 兼容接口，支持流式响应
+ * 封装 OpenAI 兼容接口，支持流式响应和结构化错误处理
  */
 import type { AIConfig, AIGenerateParams, AIGenerateResult } from '../types/ai';
 import { AI_REQUEST_TIMEOUT } from '../utils/constants';
+
+/** AI 服务错误类型 */
+export enum AIErrorType {
+  AUTH = 'auth',           // 401: API Key 无效
+  RATE_LIMIT = 'rate_limit', // 429: 速率限制
+  SERVER = 'server',        // 5xx: 服务器错误
+  NETWORK = 'network',      // 网络故障
+  TIMEOUT = 'timeout',      // 超时
+  UNKNOWN = 'unknown',      // 未知错误
+}
+
+/** AI 服务错误 */
+export class AIError extends Error {
+  constructor(
+    public type: AIErrorType,
+    message: string,
+    public statusCode?: number,
+    public retryAfterMs?: number,
+  ) {
+    super(message);
+    this.name = 'AIError';
+  }
+}
+
+/** 根据 HTTP 状态码返回用户友好的错误信息 */
+function getErrorByStatus(status: number, body: string): AIError {
+  switch (status) {
+    case 401:
+      return new AIError(AIErrorType.AUTH, 'API Key 无效或已过期，请在设置中重新配置', status);
+    case 403:
+      return new AIError(AIErrorType.AUTH, 'API 访问被拒绝，请检查账户余额和权限', status);
+    case 429:
+      return new AIError(AIErrorType.RATE_LIMIT, '请求过于频繁，请稍后重试', status, 30000);
+    case 500:
+    case 502:
+    case 503:
+    case 504:
+      return new AIError(AIErrorType.SERVER, 'AI 服务暂时不可用，请稍后重试', status);
+    default:
+      if (status >= 500) {
+        return new AIError(AIErrorType.SERVER, `AI 服务器错误 (${status})`, status);
+      }
+      if (status >= 400) {
+        return new AIError(AIErrorType.UNKNOWN, `请求失败 (${status}): ${body.slice(0, 100)}`, status);
+      }
+      return new AIError(AIErrorType.UNKNOWN, body || `请求失败 (${status})`, status);
+  }
+}
 
 /** AI 服务 */
 export const aiService = {
@@ -17,6 +65,11 @@ export const aiService = {
     params: AIGenerateParams,
     config: AIConfig,
   ): Promise<AIGenerateResult> {
+    // 前置校验
+    if (!config.apiKey) {
+      throw new AIError(AIErrorType.AUTH, '请先在设置中配置 API Key');
+    }
+
     const messages: Array<{ role: string; content: string }> = [];
 
     if (params.systemPrompt) {
@@ -32,7 +85,7 @@ export const aiService = {
       stream: !!params.onChunk,
     };
 
-    // 如果外部提供了 signal，使用外部的；否则创建自己的超时控制器
+    // 超时控制
     const controller = params.signal
       ? null
       : new AbortController();
@@ -53,12 +106,21 @@ export const aiService = {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`AI API Error (${response.status}): ${errorText}`);
+        let errorText = '';
+        try {
+          errorText = await response.text();
+          // 尝试解析 JSON 错误
+          const json = JSON.parse(errorText);
+          const msg = json.error?.message || json.error?.code || errorText;
+          throw getErrorByStatus(response.status, msg);
+        } catch (e) {
+          if (e instanceof AIError) throw e;
+          throw getErrorByStatus(response.status, errorText);
+        }
       }
 
       if (params.onChunk && response.body) {
-        return await handleStreamResponse(response.body, params.onChunk);
+        return await handleStreamResponse(response.body, params.onChunk, signal);
       } else {
         const data = await response.json();
         return {
@@ -73,10 +135,24 @@ export const aiService = {
         };
       }
     } catch (error) {
+      // 已经是 AIError 的直接抛出
+      if (error instanceof AIError) throw error;
+
+      // AbortError → 超时
       if (error instanceof DOMException && error.name === 'AbortError') {
-        throw new Error('AI 请求超时，请稍后重试');
+        throw new AIError(AIErrorType.TIMEOUT, 'AI 请求超时（60秒），请检查网络后重试');
       }
-      throw error;
+
+      // TypeError (network error) → 网络故障
+      if (error instanceof TypeError) {
+        throw new AIError(AIErrorType.NETWORK, '网络连接失败，请检查网络和代理设置');
+      }
+
+      // 其他未知错误
+      throw new AIError(
+        AIErrorType.UNKNOWN,
+        error instanceof Error ? error.message : '未知错误',
+      );
     } finally {
       if (timeoutId !== undefined) clearTimeout(timeoutId);
     }
@@ -84,8 +160,13 @@ export const aiService = {
 
   /**
    * 测试 AI 连接
+   * @returns 成功返回 true，失败返回具体错误类型
    */
-  async testConnection(config: AIConfig): Promise<boolean> {
+  async testConnection(config: AIConfig): Promise<{ ok: boolean; error?: AIError }> {
+    if (!config.apiKey) {
+      return { ok: false, error: new AIError(AIErrorType.AUTH, '请先配置 API Key') };
+    }
+
     try {
       const response = await fetch(config.apiEndpoint, {
         method: 'POST',
@@ -99,10 +180,24 @@ export const aiService = {
           max_tokens: 5,
           stream: false,
         }),
+        signal: AbortSignal.timeout(15000),
       });
-      return response.ok;
-    } catch {
-      return false;
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        return { ok: false, error: getErrorByStatus(response.status, text) };
+      }
+
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        return { ok: false, error: new AIError(AIErrorType.TIMEOUT, '连接超时，请检查网络') };
+      }
+      if (error instanceof TypeError) {
+        return { ok: false, error: new AIError(AIErrorType.NETWORK, '网络连接失败') };
+      }
+      const aiErr = error instanceof AIError ? error : new AIError(AIErrorType.UNKNOWN, String(error));
+      return { ok: false, error: aiErr };
     }
   },
 };
@@ -113,14 +208,23 @@ export const aiService = {
 async function handleStreamResponse(
   body: ReadableStream<Uint8Array>,
   onChunk: (chunk: string) => void,
+  signal?: AbortSignal,
 ): Promise<AIGenerateResult> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let fullContent = '';
   let buffer = '';
 
+  const checkAborted = () => {
+    if (signal?.aborted) {
+      reader.cancel();
+      throw new AIError(AIErrorType.TIMEOUT, '请求已取消');
+    }
+  };
+
   try {
     while (true) {
+      checkAborted();
       const { done, value } = await reader.read();
       if (done) break;
 

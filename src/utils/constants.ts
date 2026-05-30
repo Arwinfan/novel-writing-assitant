@@ -6,7 +6,7 @@ export const NAV_ITEMS = [
   { key: 'outline', label: '大纲', icon: 'AccountTree' },
   { key: 'chapter', label: '正文', icon: 'Description' },
   { key: 'plotline', label: '剧情线', icon: 'Timeline' },
-  { key: 'character', label: '人物', icon: 'Person' },
+  { key: 'character', label: '角色', icon: 'Person' },
   { key: 'relation', label: '关系', icon: 'DeviceHub' },
   { key: 'setting', label: '设定', icon: 'Settings' },
 ] as const;

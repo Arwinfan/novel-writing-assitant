@@ -1,5 +1,5 @@
 /**
- * 人物卡片
+ * 角色卡片
  */
 import React from 'react';
 import { Card, CardContent, Typography, Box, Chip, CardActionArea } from '@mui/material';

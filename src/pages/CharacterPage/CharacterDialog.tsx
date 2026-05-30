@@ -1,5 +1,5 @@
 /**
- * 新增/编辑人物弹窗
+ * 新增/编辑角色弹窗
  */
 import React, { useState } from 'react';
 import {
@@ -40,7 +40,7 @@ export const CharacterDialog: React.FC<CharacterDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>新增人物</DialogTitle>
+      <DialogTitle>新增角色</DialogTitle>
       <DialogContent>
         <TextField
           value={name}

@@ -1,5 +1,5 @@
 /**
- * 顶部栏
+ * 顶部栏（支持移动端）
  */
 import React from 'react';
 import {
@@ -16,13 +16,19 @@ import {
   Settings as SettingsIcon,
   MenuBook as BookIcon,
   SwapHoriz as SwitchIcon,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import { TOPBAR_HEIGHT } from '../../utils/constants';
 import { useAppStore } from '../../stores/appStore';
 import { useAIStore } from '../../stores/aiStore';
 import { SearchBar } from '../Common/SearchBar';
 
-export const TopBar: React.FC = () => {
+interface TopBarProps {
+  isMobile: boolean;
+  onMenuClick: () => void;
+}
+
+export const TopBar: React.FC<TopBarProps> = ({ isMobile, onMenuClick }) => {
   const project = useAppStore((s) => s.project);
   const setChatPanelOpen = useAIStore((s) => s.setChatPanelOpen);
   const setConfigDialogOpen = useAIStore((s) => s.setConfigDialogOpen);
@@ -38,8 +44,15 @@ export const TopBar: React.FC = () => {
         color: 'text.primary',
       }}
     >
-      <Toolbar variant="dense" sx={{ gap: 2 }}>
-        <BookIcon sx={{ color: 'primary.main' }} fontSize="small" />
+      <Toolbar variant="dense" sx={{ gap: { xs: 0.5, sm: 2 } }}>
+        {/* 移动端汉堡菜单 */}
+        {isMobile && (
+          <IconButton color="inherit" edge="start" onClick={onMenuClick} sx={{ mr: 0.5 }}>
+            <MenuIcon />
+          </IconButton>
+        )}
+
+        {!isMobile && <BookIcon sx={{ color: 'primary.main' }} fontSize="small" />}
 
         <Button
           size="small"
@@ -47,16 +60,22 @@ export const TopBar: React.FC = () => {
           sx={{
             textTransform: 'none',
             color: 'text.primary',
+            minWidth: { xs: 'auto', sm: 'auto' },
+            px: { xs: 0.5, sm: 1 },
             '&:hover': { bgcolor: 'action.hover' },
           }}
         >
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+          <Typography
+            variant="subtitle1"
+            sx={{ fontWeight: 600, fontSize: { xs: '0.85rem', sm: '1rem' } }}
+            noWrap
+          >
             {project?.name ?? '我的小说'}
           </Typography>
-          <SwitchIcon sx={{ ml: 0.5, fontSize: 16, color: 'text.secondary' }} />
+          {!isMobile && <SwitchIcon sx={{ ml: 0.5, fontSize: 16, color: 'text.secondary' }} />}
         </Button>
 
-        {(project as any)?.genre && (
+        {(project as any)?.genre && !isMobile && (
           <Box
             sx={{
               px: 1,
@@ -72,21 +91,31 @@ export const TopBar: React.FC = () => {
           </Box>
         )}
 
-        <Box sx={{ flexGrow: 1, maxWidth: 400 }}>
-          <SearchBar />
-        </Box>
+        {/* 搜索栏：桌面端显示 */}
+        {!isMobile && (
+          <Box sx={{ flexGrow: 1, maxWidth: 400 }}>
+            <SearchBar />
+          </Box>
+        )}
 
         <Box sx={{ flexGrow: 1 }} />
 
+        {/* 移动端搜索图标 */}
+        {isMobile && (
+          <Box sx={{ flexGrow: 1, maxWidth: 120 }}>
+            <SearchBar />
+          </Box>
+        )}
+
         <Tooltip title="AI 助手">
-          <IconButton color="inherit" onClick={() => setChatPanelOpen(true)}>
-            <AIIcon />
+          <IconButton color="inherit" size={isMobile ? 'small' : 'medium'} onClick={() => setChatPanelOpen(true)}>
+            <AIIcon fontSize={isMobile ? 'small' : 'medium'} />
           </IconButton>
         </Tooltip>
 
         <Tooltip title="AI 设置">
-          <IconButton color="inherit" onClick={() => setConfigDialogOpen(true)}>
-            <SettingsIcon />
+          <IconButton color="inherit" size={isMobile ? 'small' : 'medium'} onClick={() => setConfigDialogOpen(true)}>
+            <SettingsIcon fontSize={isMobile ? 'small' : 'medium'} />
           </IconButton>
         </Tooltip>
       </Toolbar>

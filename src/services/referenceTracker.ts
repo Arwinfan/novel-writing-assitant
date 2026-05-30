@@ -177,4 +177,36 @@ export const referenceTracker = {
     const refs = await referenceService.getBySource(sourceType, sourceId);
     return refs.find((r) => r.targetType === targetType && r.targetId === targetId && r.fieldName === fieldName);
   },
+
+  /**
+   * 检查实体是否可安全删除
+   * @returns 可删除返回 true，否则返回引用者列表和原因
+   */
+  async checkDeletable(
+    entityType: ReferenceEntityType,
+    entityId: string,
+  ): Promise<{ deletable: boolean; references: Array<{ sourceType: string; sourceId: string; sourceName: string }> }> {
+    const refs = await referenceService.getByTarget(entityType, entityId);
+    if (refs.length === 0) return { deletable: true, references: [] };
+
+    // 收集引用来源的名称和类型
+    const sources: Array<{ sourceType: string; sourceId: string; sourceName: string }> = [];
+    for (const ref of refs) {
+      let name = ref.sourceId;
+      try {
+        if (ref.sourceType === ReferenceEntityType.CHARACTER) {
+          name = (await referenceService.getByTarget(ReferenceEntityType.CHARACTER, ref.sourceId))[0]?.matchText ?? ref.sourceId;
+        } else {
+          // 尝试获取大纲/剧情节点名称
+          const node = await outlineNodeService.getById(ref.sourceId);
+          if (node) name = node.title;
+        }
+      } catch {
+        // 忽略查找失败
+      }
+      sources.push({ sourceType: ref.sourceType, sourceId: ref.sourceId, sourceName: name });
+    }
+
+    return { deletable: false, references: sources };
+  },
 };

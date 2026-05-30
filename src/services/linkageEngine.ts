@@ -11,6 +11,10 @@ import { DEFAULT_PROJECT_ID } from '../utils/constants';
 
 /** 联动引擎 - 处理要素变更时的联动逻辑 */
 export const linkageEngine = {
+  /** 已处理的实体ID集合，防止循环联动 */
+  _processingSet: new Set<string>(),
+  _processingLock: false,
+
   /**
    * 名称变更联动处理
    * 当人物名/设定名变更时，自动同步替换所有引用
@@ -21,22 +25,31 @@ export const linkageEngine = {
     oldName: string,
     newName: string,
   ): Promise<Array<{ sourceId: string; sourceType: ReferenceEntityType; fieldName: string }>> {
-    const references = await referenceService.getByTarget(entityType, entityId);
-    const affectedSources: Array<{ sourceId: string; sourceType: ReferenceEntityType; fieldName: string }> = [];
+    // 防止循环：如果该实体已在处理中，跳过
+    const key = `${entityType}:${entityId}`;
+    if (linkageEngine._processingSet.has(key)) return [];
+    linkageEngine._processingSet.add(key);
 
-    for (const ref of references) {
-      const updated = await nameSyncService.replaceInField(ref, oldName, newName);
-      if (updated) {
-        affectedSources.push({
-          sourceId: ref.sourceId,
-          sourceType: ref.sourceType,
-          fieldName: ref.fieldName,
-        });
-        await referenceService.updateMatchText(ref.id, newName);
+    try {
+      const references = await referenceService.getByTarget(entityType, entityId);
+      const affectedSources: Array<{ sourceId: string; sourceType: ReferenceEntityType; fieldName: string }> = [];
+
+      for (const ref of references) {
+        const updated = await nameSyncService.replaceInField(ref, oldName, newName);
+        if (updated) {
+          affectedSources.push({
+            sourceId: ref.sourceId,
+            sourceType: ref.sourceType,
+            fieldName: ref.fieldName,
+          });
+          await referenceService.updateMatchText(ref.id, newName);
+        }
       }
-    }
 
-    return affectedSources;
+      return affectedSources;
+    } finally {
+      linkageEngine._processingSet.delete(key);
+    }
   },
 
   /**
@@ -49,20 +62,28 @@ export const linkageEngine = {
     action: ImpactAction,
     entityName?: string,
   ): Promise<ImpactAlert[]> {
-    const references = await referenceService.getByTarget(entityType, entityId);
-    const alerts = impactAnalyzer.analyzeImpact(references, action, entityType, entityId, entityName);
+    // 防重入锁
+    if (linkageEngine._processingLock) return [];
+    linkageEngine._processingLock = true;
 
-    const savedAlerts: ImpactAlert[] = [];
-    for (const alertData of alerts) {
-      const alert = await impactAlertService.create(alertData);
-      savedAlerts.push(alert);
+    try {
+      const references = await referenceService.getByTarget(entityType, entityId);
+      const alerts = impactAnalyzer.analyzeImpact(references, action, entityType, entityId, entityName);
+
+      const savedAlerts: ImpactAlert[] = [];
+      for (const alertData of alerts) {
+        const alert = await impactAlertService.create(alertData);
+        savedAlerts.push(alert);
+      }
+
+      if (action === ImpactAction.DELETE) {
+        await referenceService.deleteByTarget(entityType, entityId);
+      }
+
+      return savedAlerts;
+    } finally {
+      linkageEngine._processingLock = false;
     }
-
-    if (action === ImpactAction.DELETE) {
-      await referenceService.deleteByTarget(entityType, entityId);
-    }
-
-    return savedAlerts;
   },
 
   /**

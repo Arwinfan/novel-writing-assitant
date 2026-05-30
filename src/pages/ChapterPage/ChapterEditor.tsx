@@ -1,5 +1,5 @@
 /**
- * 正文编辑器组件 - 支持Markdown编辑、AI续写、人物/设定引用
+ * 正文编辑器组件 - 支持Markdown编辑、AI续写、角色/设定引用
  */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
@@ -148,10 +148,16 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       if (aiMode === 'continue') {
         const newContent = content + '\n\n' + result.content;
         setContent(newContent);
-        onAIContinue(newContent);
+        // 立即保存AI生成的内容，避免切换章节时丢失
+        const wordCount = countWords(newContent);
+        onUpdate(chapter.id, { content: newContent, wordCount });
+        lastSavedContentRef.current = newContent;
       } else {
         setContent(result.content);
-        onAIContinue(result.content);
+        // 立即保存AI生成的内容
+        const wordCount = countWords(result.content);
+        onUpdate(chapter.id, { content: result.content, wordCount });
+        lastSavedContentRef.current = result.content;
       }
 
       setSnackbar({ open: true, message: 'AI生成完成', severity: 'success' });
@@ -161,9 +167,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       setAiGenerating(false);
       setAiDialogOpen(false);
     }
-  }, [config, content, title, aiMode, onAIContinue]);
+  }, [config, content, title, aiMode, chapter.id, onUpdate]);
 
-  /** 插入人物引用 */
+  /** 插入角色引用 */
   const handleInsertCharacter = useCallback((character: Character) => {
     const insertText = `\n【${character.name}】`;
     setContent((prev) => prev + insertText);
@@ -239,7 +245,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
           </Select>
         </FormControl>
 
-        <Tooltip title="插入人物引用">
+        <Tooltip title="插入角色引用">
           <IconButton size="small" onClick={(e) => setInsertAnchor(e.currentTarget as HTMLElement)}>
             <PersonIcon fontSize="small" />
           </IconButton>
@@ -364,7 +370,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       >
         <Box sx={{ width: 280, maxHeight: 400, overflow: 'auto' }}>
           <Box sx={{ px: 2, pt: 1, pb: 0.5 }}>
-            <Typography variant="subtitle2">插入人物</Typography>
+            <Typography variant="subtitle2">插入角色</Typography>
           </Box>
           <List dense>
             {characters.map((char) => (
@@ -375,7 +381,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             ))}
             {characters.length === 0 && (
               <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1 }}>
-                暂无人物
+                暂无角色
               </Typography>
             )}
           </List>

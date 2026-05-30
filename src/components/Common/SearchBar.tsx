@@ -39,7 +39,7 @@ export const SearchBar: React.FC = () => {
 
     for (const char of characters) {
       if (char.name.toLowerCase().includes(q) || char.alias.toLowerCase().includes(q)) {
-        found.push({ id: char.id, type: 'character', label: char.name, sublabel: '人物' });
+        found.push({ id: char.id, type: 'character', label: char.name, sublabel: '角色' });
       }
     }
 
@@ -76,7 +76,7 @@ export const SearchBar: React.FC = () => {
       <TextField
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="搜索人物、大纲、设定..."
+        placeholder="搜索角色、大纲、设定..."
         variant="outlined"
         size="small"
         fullWidth

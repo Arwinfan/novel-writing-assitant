@@ -43,6 +43,14 @@ export function useExportImport() {
     await exportImportService.downloadExport(projectId, name, description, options);
   }, [project]);
 
+  /** 同步到腾讯文档 */
+  const syncToCloud = useCallback(async () => {
+    const projectId = project?.id ?? 'default-project';
+    const name = project?.name ?? '我的小说';
+    const description = project?.description ?? '';
+    await exportImportService.syncToServer(projectId, name, description);
+  }, [project]);
+
   /** 导入项目 */
   const importProject = useCallback(
     async (file: File, mergeMode: boolean = false) => {
@@ -57,5 +65,6 @@ export function useExportImport() {
   return {
     exportProject,
     importProject,
+    syncToCloud,
   };
 }

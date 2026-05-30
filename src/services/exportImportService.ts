@@ -35,8 +35,14 @@ export interface ExportData {
   };
 }
 
-/** 导出格式 */
-export type ExportFormat = 'json' | 'txt' | 'markdown';
+/** 当前导出格式版本 */
+const EXPORT_VERSION = '2.0.0';
+
+/** 版本迁移函数映射 */
+const MIGRATIONS: Record<string, (data: ExportData) => ExportData> = {
+  // 未来版本迁移示例：
+  // '1.0.0': (data) => { /* 迁移逻辑 */ return data; },
+};
 
 /** 导出选项 */
 export interface ExportOptions {
@@ -104,7 +110,7 @@ export const exportImportService = {
     ]);
 
     const exportData: ExportData = {
-      version: '2.0.0',
+      version: EXPORT_VERSION,
       exportedAt: Date.now(),
       project: {
         id: projectId,
@@ -203,11 +209,11 @@ export const exportImportService = {
       }
     }
 
-    // 人物
+    // 角色
     if (options.includeModules.character) {
       const characters = await db.characters.where('projectId').equals(projectId).toArray();
       if (characters.length > 0) {
-        lines.push('【人物】');
+        lines.push('【角色】');
         lines.push(thinSep);
         for (const c of characters) {
           lines.push(`${c.name}${c.alias ? `（${c.alias}）` : ''}`);
@@ -221,12 +227,12 @@ export const exportImportService = {
       }
     }
 
-    // 人物关系
+    // 角色关系
     if (options.includeModules.relation) {
       const relations = await db.relations.where('projectId').equals(projectId).toArray();
       const characters = await db.characters.where('projectId').equals(projectId).toArray();
       if (relations.length > 0) {
-        lines.push('【人物关系】');
+        lines.push('【角色关系】');
         lines.push(thinSep);
         const charNameMap = new Map(characters.map((c) => [c.id, c.name]));
         for (const rel of relations) {
@@ -342,11 +348,11 @@ export const exportImportService = {
       }
     }
 
-    // 人物
+    // 角色
     if (options.includeModules.character) {
       const characters = await db.characters.where('projectId').equals(projectId).toArray();
       if (characters.length > 0) {
-        lines.push('## 👤 人物');
+        lines.push('## 👤 角色');
         lines.push('');
         for (const c of characters) {
           lines.push(`### ${c.name}${c.alias ? `（${c.alias}）` : ''}`);
@@ -360,12 +366,12 @@ export const exportImportService = {
       }
     }
 
-    // 人物关系
+    // 角色关系
     if (options.includeModules.relation) {
       const relations = await db.relations.where('projectId').equals(projectId).toArray();
       const characters = await db.characters.where('projectId').equals(projectId).toArray();
       if (relations.length > 0) {
-        lines.push('## 🔗 人物关系');
+        lines.push('## 🔗 角色关系');
         lines.push('');
         const charNameMap = new Map(characters.map((c) => [c.id, c.name]));
         for (const rel of relations) {
@@ -454,10 +460,25 @@ export const exportImportService = {
    * 从 JSON 导入项目数据
    */
   async importProject(jsonString: string, targetProjectId: string, mergeMode: boolean = false): Promise<void> {
-    const data: ExportData = JSON.parse(jsonString);
+    let data: ExportData = JSON.parse(jsonString);
 
     if (!data.version || !data.data) {
-      throw new Error('无效的导入文件格式');
+      throw new Error('无效的导入文件格式（缺少版本号或数据）');
+    }
+
+    // 版本迁移
+    if (data.version !== EXPORT_VERSION) {
+      let migrated = false;
+      for (const [version, migrateFn] of Object.entries(MIGRATIONS)) {
+        if (compareVersions(data.version, version) < 0) {
+          data = migrateFn(data);
+          migrated = true;
+        }
+      }
+      if (migrated) {
+        data.version = EXPORT_VERSION;
+        console.log(`[ExportImport] 数据已从旧版本迁移到 ${EXPORT_VERSION}`);
+      }
     }
 
     if (!mergeMode) {
@@ -491,7 +512,7 @@ export const exportImportService = {
       }
     }
 
-    // 导入人物（先导入，关系依赖人物ID）
+    // 导入角色（先导入，关系依赖角色ID）
     for (const char of data.data.characters) {
       const oldId = char.id;
       if (!mergeMode) {
@@ -612,6 +633,34 @@ export const exportImportService = {
   },
 
   /**
+   * 同步数据到本地服务器（供 WorkBuddy 读取后上传腾讯文档）
+   */
+  async syncToServer(projectId: string, projectName: string, projectDescription: string = ''): Promise<void> {
+    const exportData = await this.exportProject(projectId, projectName, projectDescription, {
+      format: 'json',
+      includeModules: {
+        outline: true,
+        chapter: true,
+        plotline: true,
+        character: true,
+        relation: true,
+        setting: true,
+      },
+    });
+
+    const response = await fetch('http://localhost:5173/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: exportData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Network error' }));
+      throw new Error(error.error || '同步失败');
+    }
+  },
+
+  /**
    * 读取导入文件
    */
   readImportFile(file: File): Promise<string> {
@@ -649,4 +698,16 @@ async function clearProjectData(projectId: string): Promise<void> {
   // Reference没有projectId，导入时直接清空
   await db.references.clear();
   await db.impactAlerts.where('projectId').equals(projectId).delete();
+}
+
+/** 简单语义版本比较：返回负数表示 v1 < v2，0 表示相等，正数表示 v1 > v2 */
+function compareVersions(v1: string, v2: string): number {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const a = parts1[i] || 0;
+    const b = parts2[i] || 0;
+    if (a !== b) return a - b;
+  }
+  return 0;
 }

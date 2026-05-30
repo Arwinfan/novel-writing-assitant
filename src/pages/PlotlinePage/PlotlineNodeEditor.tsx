@@ -60,11 +60,11 @@ export const PlotlineNodeEditor: React.FC<PlotlineNodeEditorProps> = ({ node }) 
         </Box>
 
         <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>关联人物</Typography>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>关联角色</Typography>
           <TagInput
             tags={node.characterRefs}
             onChange={(tags) => handleUpdate({ characterRefs: tags })}
-            placeholder="添加人物ID"
+            placeholder="添加角色ID"
           />
         </Box>
 

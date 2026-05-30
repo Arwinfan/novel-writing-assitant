@@ -1,7 +1,7 @@
 /**
  * 剧情线管理页
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Box, Button, Typography, Snackbar, Alert } from '@mui/material';
 import { Add as AddIcon, Timeline as TimelineIcon, AutoAwesome as AIIcon } from '@mui/icons-material';
 import { usePlotlineStore } from '../../stores/plotlineStore';
@@ -18,7 +18,7 @@ import { generateId } from '../../utils/id';
 export const PlotlinePage: React.FC = () => {
   const {
     plotlines, plotlineNodes, selectedPlotlineId, selectedNodeId,
-    loadPlotlines, createPlotline, selectPlotline, selectNode, createPlotlineNode,
+    loadPlotlines, createPlotline, deletePlotline, selectPlotline, selectNode, createPlotlineNode,
   } = usePlotlineStore();
   const [nodeDialogOpen, setNodeDialogOpen] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
@@ -95,6 +95,18 @@ export const PlotlinePage: React.FC = () => {
     }
   };
 
+  /** 批量删除剧情线 */
+  const handleBatchDelete = useCallback(async (ids: string[]) => {
+    try {
+      for (const id of ids) {
+        await deletePlotline(id);
+      }
+      setSnackbar({ open: true, message: `已删除 ${ids.length} 条剧情线`, severity: 'success' });
+    } catch (err) {
+      setSnackbar({ open: true, message: '批量删除失败', severity: 'error' });
+    }
+  }, [deletePlotline]);
+
   if (plotlines.length === 0) {
     return (
       <>
@@ -154,6 +166,7 @@ export const PlotlinePage: React.FC = () => {
           nodes={plotlineNodes}
           onNodeSelect={(nodeId) => { selectNode(nodeId); }}
           onAddNode={handleAddNode}
+          onBatchDelete={handleBatchDelete}
         />
       </Box>
 

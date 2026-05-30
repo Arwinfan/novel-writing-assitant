@@ -1,4 +1,4 @@
-/** 人物关系 */
+/** 角色关系 */
 export interface Relation {
   id: string;
   projectId: string;
