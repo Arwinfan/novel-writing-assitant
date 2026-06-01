@@ -74,6 +74,23 @@ class NovelDatabase extends Dexie {
       chapters: 'id, projectId, parentId, volumeId, outlineNodeId, sortOrder, status, createdAt',
       factions: 'id, projectId, name, factionType, parentId, leaderId, createdAt',
     });
+
+    // Version 4: 角色新增 avatar 字段
+    this.version(4).stores({
+      outlineNodes: 'id, projectId, parentId, nodeType, sortOrder, createdAt',
+      plotlines: 'id, projectId, lineType, name, createdAt',
+      plotlineNodes: 'id, plotlineId, projectId, sortOrder, createdAt',
+      characters: 'id, projectId, name, faction, factionId, createdAt',
+      relations: 'id, projectId, sourceId, targetId, relationType, createdAt',
+      settingCategories: 'id, projectId, name, sortOrder, createdAt',
+      settingItems: 'id, categoryId, projectId, name, createdAt',
+      references: 'id, sourceType, sourceId, targetType, targetId, fieldName, createdAt',
+      impactAlerts: 'id, projectId, sourceType, sourceId, targetType, targetId, dismissed, createdAt',
+      aiConfigs: 'id, projectId',
+      projectConfigs: 'id, name',
+      chapters: 'id, projectId, parentId, volumeId, outlineNodeId, sortOrder, status, createdAt',
+      factions: 'id, projectId, name, factionType, parentId, leaderId, createdAt',
+    });
   }
 }
 

@@ -172,6 +172,7 @@ export const characterService = {
       faction: params.faction ?? '',
       factionId: params.factionId ?? '',
       tags: params.tags ?? [],
+      avatar: params.avatar ?? '',
       createdAt: now,
       updatedAt: now,
     };

@@ -10,6 +10,7 @@ import type { Character } from '../types/character';
 import type { Relation } from '../types/relation';
 import type { SettingCategory, SettingItem } from '../types/setting';
 import type { Chapter } from '../types/chapter';
+import type { Faction } from '../types/faction';
 import type { Reference, ImpactAlert } from '../types/linkage';
 
 /** 导出数据结构 */
@@ -30,6 +31,7 @@ export interface ExportData {
     settingCategories: SettingCategory[];
     settingItems: SettingItem[];
     chapters: Chapter[];
+    factions: Faction[];
     references: Reference[];
     impactAlerts: ImpactAlert[];
   };
@@ -56,6 +58,7 @@ export interface ExportOptions {
     character: boolean;
     relation: boolean;
     setting: boolean;
+    faction: boolean;
   };
   /** Markdown/TXT 是否只导出完稿章节 */
   onlyCompletedChapters?: boolean;
@@ -70,6 +73,7 @@ const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
     character: true,
     relation: true,
     setting: true,
+    faction: true,
   },
   onlyCompletedChapters: false,
 };
@@ -94,6 +98,7 @@ export const exportImportService = {
       settingCategories,
       settingItems,
       chapters,
+      factions,
       references,
       impactAlerts,
     ] = await Promise.all([
@@ -105,6 +110,7 @@ export const exportImportService = {
       db.settingCategories.where('projectId').equals(projectId).toArray(),
       db.settingItems.where('projectId').equals(projectId).toArray(),
       db.chapters.where('projectId').equals(projectId).toArray(),
+      db.factions.where('projectId').equals(projectId).toArray(),
       db.references.toArray(),
       db.impactAlerts.where('projectId').equals(projectId).toArray(),
     ]);
@@ -126,6 +132,7 @@ export const exportImportService = {
         settingCategories: options.includeModules.setting ? settingCategories : [],
         settingItems: options.includeModules.setting ? settingItems : [],
         chapters: options.includeModules.chapter ? chapters : [],
+        factions: options.includeModules.faction ? factions : [],
         references,
         impactAlerts,
       },
@@ -258,6 +265,22 @@ export const exportImportService = {
             lines.push(`  ◆ ${item.name}`);
             if (item.content) lines.push(`    ${item.content}`);
           }
+          lines.push('');
+        }
+        lines.push('');
+      }
+    }
+
+    // 组织
+    if (options.includeModules.faction) {
+      const factions = await db.factions.where('projectId').equals(projectId).toArray();
+      if (factions.length > 0) {
+        const typeLabels: Record<string, string> = { clan: '家族', sect: '门派', org: '组织', nation: '国家', tribe: '部落', guild: '公会' };
+        lines.push('【组织】');
+        lines.push(thinSep);
+        for (const f of factions) {
+          lines.push(`${f.name}（${typeLabels[f.factionType] ?? f.factionType}）}`);
+          if (f.description) lines.push(`  描述：${f.description}`);
           lines.push('');
         }
         lines.push('');
@@ -403,6 +426,21 @@ export const exportImportService = {
       }
     }
 
+    // 组织
+    if (options.includeModules.faction) {
+      const factions = await db.factions.where('projectId').equals(projectId).toArray();
+      if (factions.length > 0) {
+        const typeLabels: Record<string, string> = { clan: '家族', sect: '门派', org: '组织', nation: '国家', tribe: '部落', guild: '公会' };
+        lines.push('## 🏛️ 组织');
+        lines.push('');
+        for (const f of factions) {
+          lines.push(`### ${f.name}（${typeLabels[f.factionType] ?? f.factionType}）`);
+          if (f.description) lines.push(`\n${f.description}`);
+          lines.push('');
+        }
+      }
+    }
+
     // 统计信息
     const chapters = await db.chapters.where('projectId').equals(projectId).toArray();
     const totalWords = chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0);
@@ -509,6 +547,18 @@ export const exportImportService = {
         const newId = generateId();
         idMap.set(oldId, newId);
         await db.settingItems.add({ ...item, id: newId, categoryId, projectId: targetProjectId });
+      }
+    }
+
+    // 导入组织
+    for (const faction of (data.data.factions || [])) {
+      const oldId = faction.id;
+      if (!mergeMode) {
+        await db.factions.add({ ...faction, projectId: targetProjectId });
+      } else {
+        const newId = generateId();
+        idMap.set(oldId, newId);
+        await db.factions.add({ ...faction, id: newId, projectId: targetProjectId });
       }
     }
 
@@ -645,6 +695,7 @@ export const exportImportService = {
         character: true,
         relation: true,
         setting: true,
+        faction: true,
       },
     });
 
@@ -695,6 +746,7 @@ async function clearProjectData(projectId: string): Promise<void> {
   await db.settingCategories.where('projectId').equals(projectId).delete();
   await db.settingItems.where('projectId').equals(projectId).delete();
   await db.chapters.where('projectId').equals(projectId).delete();
+  await db.factions.where('projectId').equals(projectId).delete();
   // Reference没有projectId，导入时直接清空
   await db.references.clear();
   await db.impactAlerts.where('projectId').equals(projectId).delete();

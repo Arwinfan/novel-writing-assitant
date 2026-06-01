@@ -49,6 +49,7 @@ const MODULE_LABELS: Record<string, { label: string; icon: string }> = {
   character: { label: '角色', icon: '👤' },
   relation: { label: '角色关系', icon: '🔗' },
   setting: { label: '世界设定', icon: '🌍' },
+  faction: { label: '组织', icon: '🏛️' },
 };
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({
@@ -65,6 +66,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
     character: true,
     relation: true,
     setting: true,
+    faction: true,
   });
   const [onlyCompletedChapters, setOnlyCompletedChapters] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -85,6 +87,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       character: !allSelected,
       relation: !allSelected,
       setting: !allSelected,
+      faction: !allSelected,
     });
   };
 

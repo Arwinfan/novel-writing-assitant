@@ -10,6 +10,7 @@ export interface Character {
   faction: string;
   factionId: string;     // 所属组织ID
   tags: string[];
+  avatar: string;        // 角色图片（base64 data URL）
   createdAt: number;
   updatedAt: number;
 }
@@ -24,6 +25,7 @@ export interface CreateCharacterParams {
   faction?: string;
   factionId?: string;
   tags?: string[];
+  avatar?: string;
 }
 
 /** 更新角色参数 */
@@ -36,4 +38,5 @@ export interface UpdateCharacterParams {
   faction?: string;
   factionId?: string;
   tags?: string[];
+  avatar?: string;
 }

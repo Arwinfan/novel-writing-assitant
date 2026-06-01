@@ -7,6 +7,8 @@ export interface AIConfig {
   model: string;
   temperature: number;
   maxTokens: number;
+  imageGenEndpoint?: string;  // 图片生成 API 地址
+  imageGenApiKey?: string;     // 图片生成 API Key
 }
 
 /** AI 聊天消息 */

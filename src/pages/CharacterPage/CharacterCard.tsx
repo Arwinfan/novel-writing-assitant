@@ -2,7 +2,7 @@
  * 角色卡片
  */
 import React from 'react';
-import { Card, CardContent, Typography, Box, Chip, CardActionArea } from '@mui/material';
+import { Card, CardContent, Typography, Box, Chip, CardActionArea, Avatar } from '@mui/material';
 import type { Character } from '../../types/character';
 
 interface CharacterCardProps {
@@ -24,23 +24,30 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ character, selecte
       <CardActionArea onClick={onSelect}>
         <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box
-              sx={{
-                width: 36,
-                height: 36,
-                borderRadius: '50%',
-                bgcolor: 'primary.main',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.1rem',
-                fontWeight: 600,
-                flexShrink: 0,
-              }}
-            >
-              {character.name.charAt(0)}
-            </Box>
+            {character.avatar ? (
+              <Avatar
+                src={character.avatar}
+                sx={{ width: 36, height: 36, flexShrink: 0, border: '2px solid', borderColor: 'primary.main' }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                {character.name.charAt(0)}
+              </Box>
+            )}
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
               <Typography variant="subtitle2" noWrap>
                 {character.name}
